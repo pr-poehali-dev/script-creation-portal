@@ -12,6 +12,15 @@ interface Script {
   title: string;
   content: string;
   createdAt: Date;
+  type?: 'custom' | 'xeno-cheat';
+}
+
+interface XenoCheatConfig {
+  cheatName: string;
+  author: string;
+  version: string;
+  features: string[];
+  keybinds: { action: string; key: string }[];
 }
 
 const Index = () => {
@@ -19,6 +28,16 @@ const Index = () => {
   const [currentScript, setCurrentScript] = useState('');
   const [scriptTitle, setScriptTitle] = useState('');
   const [activeTab, setActiveTab] = useState('home');
+  const [showXenoGenerator, setShowXenoGenerator] = useState(false);
+  const [xenoConfig, setXenoConfig] = useState<XenoCheatConfig>({
+    cheatName: '',
+    author: '',
+    version: '1.0',
+    features: [],
+    keybinds: []
+  });
+  const [newFeature, setNewFeature] = useState('');
+  const [newKeybind, setNewKeybind] = useState({ action: '', key: '' });
   const { toast } = useToast();
 
   const saveScript = () => {
@@ -107,6 +126,131 @@ const Index = () => {
     });
   };
 
+  const generateXenoCheat = () => {
+    if (!xenoConfig.cheatName || !xenoConfig.author) {
+      toast({
+        title: 'Ошибка',
+        description: 'Заполните название чита и автора',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const cheatScript = `-- Xeno Cheat Script
+-- Name: ${xenoConfig.cheatName}
+-- Author: ${xenoConfig.author}
+-- Version: ${xenoConfig.version}
+
+local ${xenoConfig.cheatName.replace(/\s+/g, '')} = {}
+${xenoConfig.cheatName.replace(/\s+/g, '')}.Config = {
+    Enabled = true,
+    Version = "${xenoConfig.version}",
+    Author = "${xenoConfig.author}"
+}
+
+-- Features
+${xenoConfig.features.map((feature, idx) => `${xenoConfig.cheatName.replace(/\s+/g, '')}.${feature.replace(/\s+/g, '')} = function()
+    print("[${xenoConfig.cheatName}] ${feature} activated")
+    -- Add your ${feature} code here
+end`).join('\n\n')}
+
+-- Keybinds
+local UserInputService = game:GetService("UserInputService")
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+${xenoConfig.keybinds.map(kb => `    if input.KeyCode == Enum.KeyCode.${kb.key} then
+        ${xenoConfig.cheatName.replace(/\s+/g, '')}.${kb.action.replace(/\s+/g, '')}()
+    end`).join('\n')}
+end)
+
+-- Initialize
+print("[${xenoConfig.cheatName}] Loaded successfully!")
+print("[${xenoConfig.cheatName}] Version: ${xenoConfig.version}")
+print("[${xenoConfig.cheatName}] Author: ${xenoConfig.author}")
+
+return ${xenoConfig.cheatName.replace(/\s+/g, '')}`;
+
+    setScriptTitle(xenoConfig.cheatName);
+    setCurrentScript(cheatScript);
+    setShowXenoGenerator(false);
+    setActiveTab('editor');
+    
+    toast({
+      title: 'Чит создан!',
+      description: `Скрипт ${xenoConfig.cheatName} готов к редактированию`,
+    });
+  };
+
+  const addFeature = () => {
+    if (newFeature.trim()) {
+      setXenoConfig(prev => ({
+        ...prev,
+        features: [...prev.features, newFeature]
+      }));
+      setNewFeature('');
+    }
+  };
+
+  const addKeybind = () => {
+    if (newKeybind.action.trim() && newKeybind.key.trim()) {
+      setXenoConfig(prev => ({
+        ...prev,
+        keybinds: [...prev.keybinds, newKeybind]
+      }));
+      setNewKeybind({ action: '', key: '' });
+    }
+  };
+
+  const removeFeature = (index: number) => {
+    setXenoConfig(prev => ({
+      ...prev,
+      features: prev.features.filter((_, i) => i !== index)
+    }));
+  };
+
+  const removeKeybind = (index: number) => {
+    setXenoConfig(prev => ({
+      ...prev,
+      keybinds: prev.keybinds.filter((_, i) => i !== index)
+    }));
+  };
+
+  const loadXenoTemplate = (template: string) => {
+    const templates: Record<string, Partial<XenoCheatConfig>> = {
+      'esp': {
+        cheatName: 'ESP Cheat',
+        features: ['EnableESP', 'ShowNames', 'ShowDistance', 'ShowHealth'],
+        keybinds: [{ action: 'EnableESP', key: 'E' }]
+      },
+      'speed': {
+        cheatName: 'Speed Hack',
+        features: ['IncreaseSpeed', 'ResetSpeed', 'FlyMode'],
+        keybinds: [
+          { action: 'IncreaseSpeed', key: 'Q' },
+          { action: 'FlyMode', key: 'F' }
+        ]
+      },
+      'teleport': {
+        cheatName: 'Teleport Hack',
+        features: ['TeleportToPlayer', 'SavePosition', 'LoadPosition'],
+        keybinds: [
+          { action: 'SavePosition', key: 'P' },
+          { action: 'LoadPosition', key: 'L' }
+        ]
+      }
+    };
+
+    const selectedTemplate = templates[template];
+    if (selectedTemplate) {
+      setXenoConfig(prev => ({
+        ...prev,
+        ...selectedTemplate
+      }));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary font-sans">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -121,16 +265,26 @@ const Index = () => {
                   CODE SCRIPT BUILDER
                 </h1>
               </div>
-              <TabsList className="bg-secondary/80 backdrop-blur-sm">
-                <TabsTrigger value="home" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <Icon name="Home" size={18} className="mr-2" />
-                  Главная
-                </TabsTrigger>
-                <TabsTrigger value="editor" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  <Icon name="Code" size={18} className="mr-2" />
-                  Редактор
-                </TabsTrigger>
-              </TabsList>
+              <div className="flex gap-3 items-center">
+                <Button
+                  onClick={() => setShowXenoGenerator(true)}
+                  className="bg-gradient-to-r from-accent to-orange hover:from-accent/90 hover:to-orange/90 text-primary-foreground"
+                  size="sm"
+                >
+                  <Icon name="Zap" size={18} className="mr-2" />
+                  Создать Xeno Чит
+                </Button>
+                <TabsList className="bg-secondary/80 backdrop-blur-sm">
+                  <TabsTrigger value="home" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <Icon name="Home" size={18} className="mr-2" />
+                    Главная
+                  </TabsTrigger>
+                  <TabsTrigger value="editor" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <Icon name="Code" size={18} className="mr-2" />
+                    Редактор
+                  </TabsTrigger>
+                </TabsList>
+              </div>
             </div>
           </div>
         </div>
@@ -354,6 +508,180 @@ const Index = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {showXenoGenerator && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="max-w-3xl w-full max-h-[90vh] overflow-y-auto bg-card border-primary/50 animate-fade-in">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-accent to-orange rounded-lg flex items-center justify-center">
+                    <Icon name="Zap" className="text-background" size={24} />
+                  </div>
+                  <h2 className="text-2xl font-bold font-mono bg-gradient-to-r from-accent to-orange bg-clip-text text-transparent">
+                    Генератор Xeno Читов
+                  </h2>
+                </div>
+                <Button
+                  onClick={() => setShowXenoGenerator(false)}
+                  variant="ghost"
+                  size="sm"
+                >
+                  <Icon name="X" size={20} />
+                </Button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid md:grid-cols-3 gap-3 p-4 bg-accent/10 rounded-lg border border-accent/30">
+                  <Button
+                    onClick={() => loadXenoTemplate('esp')}
+                    variant="outline"
+                    className="border-accent/50 hover:bg-accent/20"
+                  >
+                    <Icon name="Eye" size={18} className="mr-2" />
+                    ESP Template
+                  </Button>
+                  <Button
+                    onClick={() => loadXenoTemplate('speed')}
+                    variant="outline"
+                    className="border-accent/50 hover:bg-accent/20"
+                  >
+                    <Icon name="Gauge" size={18} className="mr-2" />
+                    Speed Template
+                  </Button>
+                  <Button
+                    onClick={() => loadXenoTemplate('teleport')}
+                    variant="outline"
+                    className="border-accent/50 hover:bg-accent/20"
+                  >
+                    <Icon name="MapPin" size={18} className="mr-2" />
+                    Teleport Template
+                  </Button>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block font-mono text-primary">
+                      Название чита *
+                    </label>
+                    <Input
+                      value={xenoConfig.cheatName}
+                      onChange={(e) => setXenoConfig(prev => ({ ...prev, cheatName: e.target.value }))}
+                      placeholder="Mega Speed Hack"
+                      className="bg-background/50 border-border font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block font-mono text-primary">
+                      Автор *
+                    </label>
+                    <Input
+                      value={xenoConfig.author}
+                      onChange={(e) => setXenoConfig(prev => ({ ...prev, author: e.target.value }))}
+                      placeholder="YourName"
+                      className="bg-background/50 border-border font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block font-mono text-primary">
+                    Версия
+                  </label>
+                  <Input
+                    value={xenoConfig.version}
+                    onChange={(e) => setXenoConfig(prev => ({ ...prev, version: e.target.value }))}
+                    placeholder="1.0"
+                    className="bg-background/50 border-border font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block font-mono text-accent">
+                    Функции чита
+                  </label>
+                  <div className="flex gap-2 mb-3">
+                    <Input
+                      value={newFeature}
+                      onChange={(e) => setNewFeature(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && addFeature()}
+                      placeholder="SpeedBoost, WallHack..."
+                      className="bg-background/50 border-border font-mono"
+                    />
+                    <Button onClick={addFeature} size="sm" className="bg-accent hover:bg-accent/90">
+                      <Icon name="Plus" size={18} />
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {xenoConfig.features.map((feature, idx) => (
+                      <div key={idx} className="flex items-center gap-2 bg-accent/20 px-3 py-1 rounded-md border border-accent/30">
+                        <span className="font-mono text-sm">{feature}</span>
+                        <button onClick={() => removeFeature(idx)} className="text-accent hover:text-accent/70">
+                          <Icon name="X" size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block font-mono text-accent">
+                    Клавиши управления
+                  </label>
+                  <div className="grid grid-cols-[1fr,auto,auto] gap-2 mb-3">
+                    <Input
+                      value={newKeybind.action}
+                      onChange={(e) => setNewKeybind(prev => ({ ...prev, action: e.target.value }))}
+                      placeholder="Действие"
+                      className="bg-background/50 border-border font-mono"
+                    />
+                    <Input
+                      value={newKeybind.key}
+                      onChange={(e) => setNewKeybind(prev => ({ ...prev, key: e.target.value.toUpperCase() }))}
+                      placeholder="Q"
+                      className="bg-background/50 border-border font-mono w-20"
+                      maxLength={1}
+                    />
+                    <Button onClick={addKeybind} size="sm" className="bg-accent hover:bg-accent/90">
+                      <Icon name="Plus" size={18} />
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {xenoConfig.keybinds.map((kb, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-accent/20 px-3 py-2 rounded-md border border-accent/30">
+                        <span className="font-mono text-sm">{kb.action}</span>
+                        <div className="flex items-center gap-2">
+                          <kbd className="px-2 py-1 bg-background rounded font-mono text-xs">{kb.key}</kbd>
+                          <button onClick={() => removeKeybind(idx)} className="text-accent hover:text-accent/70">
+                            <Icon name="Trash2" size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    onClick={generateXenoCheat}
+                    className="flex-1 bg-gradient-to-r from-accent to-orange hover:from-accent/90 hover:to-orange/90 text-primary-foreground"
+                  >
+                    <Icon name="Sparkles" size={18} className="mr-2" />
+                    Сгенерировать чит
+                  </Button>
+                  <Button
+                    onClick={() => setShowXenoGenerator(false)}
+                    variant="outline"
+                    className="border-border"
+                  >
+                    Отмена
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
