@@ -29,6 +29,9 @@ const Index = () => {
   const [scriptTitle, setScriptTitle] = useState('');
   const [activeTab, setActiveTab] = useState('home');
   const [showXenoGenerator, setShowXenoGenerator] = useState(false);
+  const [showLoadstringGenerator, setShowLoadstringGenerator] = useState(false);
+  const [loadstringUrl, setLoadstringUrl] = useState('');
+  const [loadstringWarning, setLoadstringWarning] = useState(true);
   const [xenoConfig, setXenoConfig] = useState<XenoCheatConfig>({
     cheatName: '',
     author: '',
@@ -251,6 +254,36 @@ return ${xenoConfig.cheatName.replace(/\s+/g, '')}`;
     }
   };
 
+  const generateLoadstringScript = () => {
+    if (!loadstringUrl.trim()) {
+      toast({
+        title: 'Ошибка',
+        description: 'Введите URL скрипта',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const warningComment = loadstringWarning 
+      ? `--[[
+	WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+]]
+` 
+      : '';
+
+    const loadstringScript = `${warningComment}loadstring(game:HttpGet("${loadstringUrl}"))()`;
+
+    setScriptTitle('Loadstring Script');
+    setCurrentScript(loadstringScript);
+    setShowLoadstringGenerator(false);
+    setActiveTab('editor');
+    
+    toast({
+      title: 'Скрипт создан!',
+      description: 'Loadstring скрипт готов к использованию',
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary font-sans">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -267,12 +300,20 @@ return ${xenoConfig.cheatName.replace(/\s+/g, '')}`;
               </div>
               <div className="flex gap-3 items-center">
                 <Button
+                  onClick={() => setShowLoadstringGenerator(true)}
+                  className="bg-gradient-to-r from-primary to-cyan hover:from-primary/90 hover:to-cyan/90 text-primary-foreground"
+                  size="sm"
+                >
+                  <Icon name="Link" size={18} className="mr-2" />
+                  Loadstring
+                </Button>
+                <Button
                   onClick={() => setShowXenoGenerator(true)}
                   className="bg-gradient-to-r from-accent to-orange hover:from-accent/90 hover:to-orange/90 text-primary-foreground"
                   size="sm"
                 >
                   <Icon name="Zap" size={18} className="mr-2" />
-                  Создать Xeno Чит
+                  Чит Xeno
                 </Button>
                 <TabsList className="bg-secondary/80 backdrop-blur-sm">
                   <TabsTrigger value="home" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
@@ -508,6 +549,91 @@ return ${xenoConfig.cheatName.replace(/\s+/g, '')}`;
           </div>
         </TabsContent>
       </Tabs>
+
+      {showLoadstringGenerator && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="max-w-2xl w-full bg-card border-primary/50 animate-fade-in">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-primary to-cyan rounded-lg flex items-center justify-center">
+                    <Icon name="Link" className="text-background" size={24} />
+                  </div>
+                  <h2 className="text-2xl font-bold font-mono bg-gradient-to-r from-primary to-cyan bg-clip-text text-transparent">
+                    Loadstring Генератор
+                  </h2>
+                </div>
+                <Button
+                  onClick={() => setShowLoadstringGenerator(false)}
+                  variant="ghost"
+                  size="sm"
+                >
+                  <Icon name="X" size={20} />
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block font-mono text-primary">
+                    URL скрипта *
+                  </label>
+                  <Input
+                    value={loadstringUrl}
+                    onChange={(e) => setLoadstringUrl(e.target.value)}
+                    placeholder="https://raw.githubusercontent.com/user/repo/main/script.lua"
+                    className="bg-background/50 border-border font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Введите прямую ссылку на raw-файл скрипта
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 p-4 bg-primary/10 rounded-lg border border-primary/30">
+                  <input
+                    type="checkbox"
+                    checked={loadstringWarning}
+                    onChange={(e) => setLoadstringWarning(e.target.checked)}
+                    className="w-4 h-4 accent-primary"
+                    id="warning-check"
+                  />
+                  <label htmlFor="warning-check" className="text-sm cursor-pointer">
+                    Добавить предупреждение ScriptBlox
+                  </label>
+                </div>
+
+                {loadstringUrl && (
+                  <div className="bg-background/50 rounded-lg p-4 border border-border">
+                    <p className="text-xs text-muted-foreground mb-2 font-mono">Предпросмотр:</p>
+                    <pre className="font-mono text-sm text-foreground whitespace-pre-wrap break-all">
+                      {loadstringWarning && `--[[
+	WARNING: Heads up! This script has not been verified by ScriptBlox. Use at your own risk!
+]]
+`}loadstring(game:HttpGet("{loadstringUrl}"))()
+                    </pre>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    onClick={generateLoadstringScript}
+                    className="flex-1 bg-gradient-to-r from-primary to-cyan hover:from-primary/90 hover:to-cyan/90 text-primary-foreground"
+                  >
+                    <Icon name="Sparkles" size={18} className="mr-2" />
+                    Сгенерировать
+                  </Button>
+                  <Button
+                    onClick={() => setShowLoadstringGenerator(false)}
+                    variant="outline"
+                    className="border-border"
+                  >
+                    Отмена
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {showXenoGenerator && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
